@@ -1,32 +1,34 @@
 const { Client } = require('pg');
+const express = require('express'); // Express 추가
+const app = express();
+const port = process.env.PORT || 3000; // Render에서 제공하는 포트 사용
 
-// Render의 환경 변수 DATABASE_URL을 가져옵니다.
 const client = new Client({
   connectionString: process.env.DATABASE_URL,
   ssl: {
-    rejectUnauthorized: false // Neon/Render 연결 시 SSL 설정이 필요합니다.
+    rejectUnauthorized: false
   }
 });
 
-async function getName() {
+// 서버 시작 시 DB 연결 (한 번만)
+client.connect()
+  .then(() => console.log('Connected to DB'))
+  .catch(err => console.error('DB Connection Error', err));
+
+app.get('/', async (req, res) => {
   try {
-    await client.connect();
-
-    // 'test' 테이블에서 이름 하나를 조회합니다.
-    // 여기서는 가장 최근 혹은 임의의 레코드 하나를 가져오도록 처리했습니다.
-    const res = await client.query('SELECT name FROM test LIMIT 1');
-
-    if (res.rows.length > 0) {
-      const name = res.rows[0].name;
-      console.log(`HELLO ${name}`);
+    const dbRes = await client.query('SELECT name FROM test LIMIT 1');
+    if (dbRes.rows.length > 0) {
+      res.send(`HELLO ${dbRes.rows[0].name}`);
     } else {
-      console.log('데이터가 없습니다.');
+      res.send('데이터가 없습니다.');
     }
   } catch (err) {
-    console.error('에러 발생:', err.stack);
-  } finally {
-    await client.end();
+    res.status(500).send('에러 발생: ' + err.message);
   }
-}
+});
 
-getName();
+// 서버를 계속 띄워놓음
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+});
