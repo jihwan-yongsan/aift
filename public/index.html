@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>분실물 센터</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
+</head>
+<body>
+    <main class="container">
+        <h1>🔍 분실물 목록</h1>
+        <div id="item-list">데이터를 불러오는 중...</div>
+    </main>
+
+    <script>
+        // 서버에게 "데이터 줘!"라고 요청하는 코드
+        fetch('/api/items')
+            .then(res => res.json())
+            .then(data => {
+                const listDiv = document.getElementById('item-list');
+                if (data.length === 0) {
+                    listDiv.innerHTML = "<p>등록된 물건이 없습니다.</p>";
+                    return;
+                }
+                
+                let html = '<table><thead><tr><th>날짜</th><th>이름</th><th>상세</th></tr></thead><tbody>';
+                data.forEach(item => {
+                    html += `<tr>
+                        <td>${item.found_date.split('T')[0]}</td>
+                        <td>${item.item_name}</td>
+                        <td><button onclick="alert('발견위치: ${item.found_location}\\n보관장소: ${item.storage_location}')">정보</button></td>
+                    </tr>`;
+                });
+                html += '</tbody></table>';
+                listDiv.innerHTML = html;
+            });
+    </script>
+</body>
+</html>
