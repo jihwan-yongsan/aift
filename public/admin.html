@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>관리자 - 분실물 등록</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
+</head>
+<body>
+    <main class="container">
+        <h1>🆕 새 분실물 등록</h1>
+        <form id="add-form">
+            <label>물건 이름: <input type="text" id="name" required></label>
+            <label>발견 날짜: <input type="date" id="date" required></label>
+            <label>발견 위치: <input type="text" id="f_loc" required></label>
+            <label>보관 장소: <input type="text" id="s_loc" required></label>
+            <label>관리자 암호: <input type="password" id="pw" required></label>
+            <button type="submit">등록하기</button>
+        </form>
+        <a href="/">목록으로 돌아가기</a>
+    </main>
+
+    <script>
+        document.getElementById('add-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const newItem = {
+                name: document.getElementById('name').value,
+                date: document.getElementById('date').value,
+                f_loc: document.getElementById('f_loc').value,
+                s_loc: document.getElementById('s_loc').value,
+                pw: document.getElementById('pw').value // 비밀번호 포함
+            };
+
+            const res = await fetch('/api/items', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newItem)
+            });
+
+            if (res.ok) {
+                alert('등록 성공!');
+                location.href = '/';
+            } else {
+                alert('등록 실패! (암호를 확인하세요)');
+            }
+        };
+    </script>
+</body>
+</html>
