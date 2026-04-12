@@ -3,52 +3,60 @@ const { Pool } = require('pg');
 require('dotenv').config();
 
 const app = express();
-
-// [중요!] 사용자가 보낸 JSON 데이터를 읽기 위한 설정
-app.use(express.json()); 
-
-// public 폴더 안의 HTML 파일들을 보여주기 위한 설정
+app.use(express.json());
 app.use(express.static('public'));
 
-// Neon DB 연결 설정
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
 
-// 1. [API] 분실물 목록 가져오기 (사용자용)
+const ADMIN_PW = '1234'; // 관리자 마스터 비밀번호
+
+// 1. 목록 가져오기
 app.get('/api/items', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM lost_items ORDER BY found_date DESC');
+    const result = await pool.query('SELECT id, item_name, found_date, found_location, storage_location FROM lost_items ORDER BY found_date DESC');
     res.json(result.rows);
   } catch (err) {
-    console.error(err);
-    res.status(500).send('DB 연결 오류');
+    res.status(500).send('DB 오류');
   }
 });
 
-// 2. [API] 분실물 등록하기 (관리자용)
+// 2. 글 등록하기 (누구나 가능, 본인 비번 설정)
 app.post('/api/items', async (req, res) => {
   const { name, date, f_loc, s_loc, pw } = req.body;
-
-  // 관리자 암호 체크 (원하는 암호로 바꾸셔도 됩니다)
-  if (pw !== '1234') {
-    return res.status(403).send('암호가 틀렸습니다.');
-  }
-
   try {
     await pool.query(
-      'INSERT INTO lost_items (item_name, found_date, found_location, storage_location) VALUES ($1, $2, $3, $4)',
-      [name, date, f_loc, s_loc]
+      'INSERT INTO lost_items (item_name, found_date, found_location, storage_location, password) VALUES ($1, $2, $3, $4, $5)',
+      [name, date, f_loc, s_loc, pw]
     );
     res.status(201).send('저장 완료');
   } catch (err) {
-    console.error(err);
-    res.status(500).send('DB 저장 오류');
+    res.status(500).send('저장 실패');
+  }
+});
+
+// 3. 글 삭제하기 (본인 비번 OR 관리자 비번)
+app.delete('/api/items/:id', async (req, res) => {
+  const { id } = req.params;
+  const { pw } = req.body;
+
+  try {
+    const item = await pool.query('SELECT password FROM lost_items WHERE id = $1', [id]);
+    if (item.rows.length === 0) return res.status(404).send('항목 없음');
+
+    // 본인 비번이거나 관리자 비번이면 삭제 허용
+    if (pw === item.rows[0].password || pw === ADMIN_PW) {
+      await pool.query('DELETE FROM lost_items WHERE id = $1', [id]);
+      res.send('삭제 성공');
+    } else {
+      res.status(403).send('비밀번호 불일치');
+    }
+  } catch (err) {
+    res.status(500).send('삭제 오류');
   }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`서버가 ${PORT}번 포트에서 실행 중입니다!`);
-});
+app.listen(PORT, () => console.log(`Server running on ${PORT}`));
