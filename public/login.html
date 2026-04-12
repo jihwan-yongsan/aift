@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>로그인</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
+</head>
+<body class="container">
+    <h1>🔑 로그인 / 회원가입</h1>
+    <input type="text" id="userid" placeholder="아이디">
+    <input type="password" id="password" placeholder="비밀번호">
+    <button onclick="login()">로그인</button>
+    <button class="outline" onclick="signup()">회원가입</button>
+
+    <script>
+        async function login() {
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({userid: userid.value, password: password.value})
+            });
+            if(res.ok) {
+                localStorage.setItem('userid', userid.value); // 브라우저에 아이디 저장
+                location.href = '/';
+            } else alert('실패');
+        }
+        async function signup() {
+            const res = await fetch('/api/signup', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({userid: userid.value, password: password.value})
+            });
+            alert(await res.text());
+        }
+    </script>
+</body>
+</html>
