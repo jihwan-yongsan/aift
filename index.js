@@ -11,52 +11,55 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-const ADMIN_PW = '1234'; // 관리자 마스터 비밀번호
+const ADMIN_ID = 'admin'; // 관리자 아이디
 
-// 1. 목록 가져오기
+// [회원가입]
+app.post('/api/signup', async (req, res) => {
+  const { userid, password } = req.body;
+  try {
+    await pool.query('INSERT INTO users (userid, password) VALUES ($1, $2)', [userid, password]);
+    res.send('가입 성공');
+  } catch (err) { res.status(400).send('이미 존재하는 아이디입니다.'); }
+});
+
+// [로그인 체크] (실습용으로 아주 단순하게 구현)
+app.post('/api/login', async (req, res) => {
+  const { userid, password } = req.body;
+  const user = await pool.query('SELECT * FROM users WHERE userid = $1 AND password = $2', [userid, password]);
+  if (user.rows.length > 0) res.json({ userid: user.rows[0].userid });
+  else res.status(401).send('로그인 실패');
+});
+
+// [목록 가져오기]
 app.get('/api/items', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT id, item_name, found_date, found_location, storage_location FROM lost_items ORDER BY found_date DESC');
-    res.json(result.rows);
-  } catch (err) {
-    res.status(500).send('DB 오류');
-  }
+  const result = await pool.query('SELECT * FROM lost_items ORDER BY found_date DESC');
+  res.json(result.rows);
 });
 
-// 2. 글 등록하기 (누구나 가능, 본인 비번 설정)
+// [글 쓰기]
 app.post('/api/items', async (req, res) => {
-  const { name, date, f_loc, s_loc, pw } = req.body;
-  try {
-    await pool.query(
-      'INSERT INTO lost_items (item_name, found_date, found_location, storage_location, password) VALUES ($1, $2, $3, $4, $5)',
-      [name, date, f_loc, s_loc, pw]
-    );
-    res.status(201).send('저장 완료');
-  } catch (err) {
-    res.status(500).send('저장 실패');
-  }
+  const { name, date, f_loc, s_loc, userid } = req.body;
+  await pool.query(
+    'INSERT INTO lost_items (item_name, found_date, found_location, storage_location, owner_id) VALUES ($1, $2, $3, $4, $5)',
+    [name, date, f_loc, s_loc, userid]
+  );
+  res.send('저장 완료');
 });
 
-// 3. 글 삭제하기 (본인 비번 OR 관리자 비번)
-app.delete('/api/items/:id', async (req, res) => {
+// [글 수정하기]
+app.put('/api/items/:id', async (req, res) => {
   const { id } = req.params;
-  const { pw } = req.body;
-
-  try {
-    const item = await pool.query('SELECT password FROM lost_items WHERE id = $1', [id]);
-    if (item.rows.length === 0) return res.status(404).send('항목 없음');
-
-    // 본인 비번이거나 관리자 비번이면 삭제 허용
-    if (pw === item.rows[0].password || pw === ADMIN_PW) {
-      await pool.query('DELETE FROM lost_items WHERE id = $1', [id]);
-      res.send('삭제 성공');
-    } else {
-      res.status(403).send('비밀번호 불일치');
-    }
-  } catch (err) {
-    res.status(500).send('삭제 오류');
-  }
+  const { name, f_loc, s_loc, userid } = req.body;
+  
+  const item = await pool.query('SELECT owner_id FROM lost_items WHERE id = $1', [id]);
+  if (userid === item.rows[0].owner_id || userid === ADMIN_ID) {
+    await pool.query(
+      'UPDATE lost_items SET item_name=$1, found_location=$2, storage_location=$3 WHERE id=$4',
+      [name, f_loc, s_loc, id]
+    );
+    res.send('수정 성공');
+  } else res.status(403).send('권한 없음');
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on ${PORT}`));
+app.listen(PORT, () => console.log(`Server on ${PORT}`));
