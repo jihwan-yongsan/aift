@@ -1,23 +1,88 @@
-// index.html의 스크립트 부분에 추가/수정
-const currentId = localStorage.getItem('userid');
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>분실물 센터</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
+</head>
+<body>
+    <main class="container">
+        <nav>
+            <ul><li><strong>🔍 분실물 센터</strong></li></ul>
+            <ul><li><a href="/admin.html" class="contrast">글쓰기</a></li></ul>
+        </nav>
 
-// 목록 불러올 때 수정 버튼 조건 추가 예시
-html += `<tr>
-    <td>${item.item_name}</td>
-    <td>
-        ${(currentId === item.owner_id || currentId === 'admin') ? 
-          `<button onclick="editItem(${item.id}, '${item.item_name}')">수정</button>` : ''}
-    </td>
-</tr>`;
+        <div id="item-list">불러오는 중...</div>
+    </main>
 
-async function editItem(id, oldName) {
-    const newName = prompt("새 물건 이름", oldName);
-    if(!newName) return;
-    
-    await fetch(`/api/items/${id}`, {
-        method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ name: newName, userid: currentId }) // f_loc, s_loc 생략(예제용)
-    });
-    location.reload();
-}</html>
+    <script>
+        function loadItems() {
+            fetch('/api/items')
+                .then(res => res.json())
+                .then(data => {
+                    const listDiv = document.getElementById('item-list');
+                    let html = '<table role="grid"><thead><tr><th>날짜</th><th>물건</th><th>관리</th></tr></thead><tbody>';
+                    data.forEach(item => {
+                        html += `<tr>
+                            <td>${item.found_date ? item.found_date.split('T')[0] : '날짜 없음'}</td>
+                            <td><strong>${item.item_name}</strong><br><small>${item.found_location}</small></td>
+                            <td>
+                                <button class="secondary" onclick="viewDetail('${item.found_location}', '${item.storage_location}')">보기</button>
+                                <button class="outline" onclick="editItem(${item.id}, '${item.item_name}')">수정</button>
+                                <button class="outline" style="color:red; border-color:red;" onclick="deleteItem(${item.id})">삭제</button>
+                            </td>
+                        </tr>`;
+                    });
+                    html += '</tbody></table>';
+                    listDiv.innerHTML = html;
+                });
+        }
+
+        function viewDetail(f, s) {
+            alert(`발견위치: ${f}\n보관장소: ${s}`);
+        }
+
+        // 수정 기능 (비밀번호 확인)
+        async function editItem(id, oldName) {
+            const newName = prompt("새 물건 이름을 입력하세요:", oldName);
+            if (!newName) return;
+            const pw = prompt("비밀번호를 입력하세요 (본인 비번 또는 관리자 비번):");
+            if (!pw) return;
+
+            const res = await fetch(`/api/items/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: newName, pw })
+            });
+
+            if (res.ok) {
+                alert('수정되었습니다.');
+                loadItems();
+            } else {
+                alert('비밀번호가 틀렸습니다.');
+            }
+        }
+
+        // 삭제 기능 (비밀번호 확인)
+        async function deleteItem(id) {
+            const pw = prompt("비밀번호를 입력하세요 (본인 비번 또는 관리자 비번):");
+            if (!pw) return;
+
+            const res = await fetch(`/api/items/${id}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pw })
+            });
+
+            if (res.ok) {
+                alert('삭제되었습니다.');
+                loadItems();
+            } else {
+                alert('비밀번호가 틀렸습니다.');
+            }
+        }
+
+        loadItems();
+    </script>
+</body>
+</html>
